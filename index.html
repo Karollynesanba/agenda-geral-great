@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda Great</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-header">
+      <div class="brand"><img src="assets/great-logo.png" alt="Great Assessoria" width="674" height="234"></div>
+      <span class="header-label">ESPAÇO PARA CONECTAR IDEIAS</span>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">NOSSO ESPAÇO, SUAS IDEIAS</p>
+        <h1 id="page-title">Agenda<span class="title-accent"> Great.</span></h1>
+        <p class="sub">Boas conversas começam com um horário reservado.</p>
+      </div>
+      <div class="room-info">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></svg>
+        <div><strong>Sala de reunião</strong><span>Segunda a sábado · 09h às 23h59</span></div>
+      </div>
+    </section>
+
+    <p class="banner" id="demo" hidden>
+      <strong>Modo de teste</strong><span>As reservas ficam salvas neste navegador. Configure o <code>config.js</code> com os dados do Supabase para compartilhar a agenda.</span>
+    </p>
+
+    <section class="calendar" aria-label="Agenda da sala de reunião">
+      <div class="calendar-toolbar">
+        <div class="calendar-heading"><span class="eyebrow">PLANEJE SUA SEMANA</span><h2>Agenda da sala</h2></div>
+        <div class="nav" aria-label="Navegação por semana">
+        <button class="btn" id="prev" aria-label="Semana anterior">←</button>
+        <span class="range" id="range"></span>
+        <button class="btn" id="next" aria-label="Próxima semana">→</button>
+        <button class="btn" id="today">Hoje</button>
+        </div>
+      </div>
+
+    <div class="legend">
+      <span class="chip"><i class="dot sec-op"></i>Operacional</span>
+      <span class="chip"><i class="dot sec-com"></i>Comercial</span>
+      <span class="chip"><i class="dot sec-org"></i>Orgânico</span>
+      <span class="legend-hint">Selecione um horário livre para agendar <span aria-hidden="true">↗</span></span>
+    </div>
+
+    <div class="grid-scroll"><table class="week" id="week"></table></div>
+
+    <div class="mobile">
+      <div class="days" id="days"></div>
+      <div class="daylist" id="daylist"></div>
+    </div>
+      <div class="calendar-footer"><span class="status" id="status" role="status" aria-live="polite">Carregando agenda…</span><span class="interval-note">Horários de 30 em 30 minutos</span></div>
+    </section>
+    <footer class="page-footer"><span>Great. Um espaço para grandes ideias.</span><span>Agenda de reuniões</span></footer>
+  </div>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle" id="panel"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
