@@ -138,6 +138,10 @@ table.week { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .slot.past { background: var(--past); cursor: default; }
 .slot.taken { color: var(--fg); border-left: 4px solid var(--c); background: var(--cs); overflow: hidden; }
 .slot.taken.sec-org { border-left-style: dashed; }
+.booking-block { position: relative; }
+.slot.with-edit { padding-right: 44px; }
+.booking-edit { position: absolute; top: 3px; right: 4px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--accent); }
+.booking-edit:hover { border-color: var(--accent); }
 .slot.taken .n { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 .slot.taken .s {
   display: block; font-size: 0.7rem; color: var(--c); font-weight: 600; text-transform: uppercase;
@@ -194,10 +198,11 @@ table.week { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .f { display: grid; gap: 6px; font-weight: 600; font-size: 0.9rem; }
 .req { color: var(--danger); }
 .hint { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
-input[type=text], select {
+input[type=text], input[type=date], select {
   font: inherit; width: 100%; padding: 9px 11px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--bg); color: var(--fg);
 }
+.form-times { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-weight: 600; font-size: 0.9rem; padding: 0; margin-bottom: 6px; }
 .sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

@@ -49,6 +49,15 @@ function supabaseStore(url, key) {
       // 23P01 = conflito de horário (bloqueado pelo próprio banco)
       return error.code === "23P01" ? "taken" : "error";
     },
+    async update(id, actor, b) {
+      const { data, error } = await sb.rpc("edit_booking", {
+        p_id: id, p_actor: actor, p_day: b.day,
+        p_start: b.start_time, p_end: b.end_time, p_name: b.name,
+        p_sector: b.sector, p_topic: b.topic, p_participants: b.participants,
+      });
+      if (error) return error.code === "PGRST202" ? "setup" : error.code === "23P01" ? "taken" : "error";
+      return data || "error";
+    },
     async cancel(id, name) {
       const { data, error } = await sb.rpc("cancel_booking", { p_id: id, p_name: name });
       if (error) return "error";
@@ -65,7 +74,7 @@ function supabaseStore(url, key) {
 function localStore() {
   const KEY = "agenda-great-reservas";
   const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
-  const write = (all) => { try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (e) {} };
+  const write = (all) => { localStorage.setItem(KEY, JSON.stringify(all)); };
   return {
     async list(from, to) { return read().filter((b) => b.day >= from && b.day <= to); },
     async create(b) {
@@ -73,7 +82,20 @@ function localStore() {
       const clash = all.some((x) => x.day === b.day && toMin(x.start_time) < toMin(b.end_time) && toMin(b.start_time) < toMin(x.end_time));
       if (clash) return "taken";
       all.push({ ...b, id: String(Date.now()) + Math.random().toString(36).slice(2, 6) });
-      write(all);
+      try { write(all); } catch (e) { return "error"; }
+      return "ok";
+    },
+    async update(id, actor, b) {
+      const all = read();
+      const index = all.findIndex((x) => x.id === id);
+      if (index < 0) return "missing";
+      const original = all[index];
+      if (![original.name, ...(original.participants || [])].some((n) => norm(n) === norm(actor))) return "denied";
+      if (isPast(original.day, toTime(toMin(original.end_time) - STEP_MIN))) return "ended";
+      const clash = all.some((x) => x.id !== id && x.day === b.day && toMin(x.start_time) < toMin(b.end_time) && toMin(b.start_time) < toMin(x.end_time));
+      if (clash) return "taken";
+      all[index] = { ...original, ...b, id };
+      try { write(all); } catch (e) { return "error"; }
       return "ok";
     },
     async cancel(id, name) {
@@ -82,7 +104,7 @@ function localStore() {
       if (!b) return "ok";
       const allowed = [b.name, ...(b.participants || [])].some((n) => norm(n) === norm(name));
       if (!allowed) return "denied";
-      write(all.filter((x) => x.id !== id));
+      try { write(all.filter((x) => x.id !== id)); } catch (e) { return "error"; }
       return "ok";
     },
     subscribe(onChange) { window.addEventListener("storage", (e) => { if (e.key === KEY) onChange(); }); },
@@ -130,12 +152,24 @@ function slotButton(date, time) {
   if (bk) {
     const sec = SECTORS[bk.sector] || SECTORS.operacional;
     b.classList.add("taken", sec.cls);
-    if (isPast(date, toTime(toMin(bk.end_time) - STEP_MIN))) b.classList.add("past");
+    const ended = isPast(date, toTime(toMin(bk.end_time) - STEP_MIN));
+    if (ended) b.classList.add("past");
     if (time === bk.start_time) {
       b.innerHTML = '<span class="n">' + esc(bk.name) + '</span><span class="s">' + sec.label + " · até " + bk.end_time + "</span>";
     }
     b.setAttribute("aria-label", time + ": reunião de " + bk.name + ", " + sec.label + ", " + bk.start_time + " às " + bk.end_time);
     b.onclick = () => openDetails(bk);
+    if (time === bk.start_time && !ended) {
+      const block = document.createElement("div"); block.className = "booking-block";
+      b.classList.add("with-edit");
+      const edit = document.createElement("button"); edit.className = "booking-edit"; edit.type = "button";
+      edit.setAttribute("aria-label", "Editar reunião de " + bk.name);
+      edit.title = "Editar agendamento";
+      edit.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 15 4a3.5 3.5 0 0 1 5 5L9 20l-6 1z"/></svg>';
+      edit.onclick = () => openForm(bk.day, bk.start_time, bk);
+      block.append(b, edit);
+      return block;
+    }
   } else if (isPast(date, time)) {
     b.classList.add("past");
     b.disabled = true;
@@ -220,21 +254,37 @@ function closePanel() { $("overlay").hidden = true; $("panel").innerHTML = ""; }
 $("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") closePanel(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("overlay").hidden) closePanel(); });
 
-function openForm(date, start) {
-  // términos possíveis: até o limite do dia ou até a próxima reunião
-  const ends = [];
-  const endMinute = toMin(END_TIME);
-  for (let m = Math.min(toMin(start) + STEP_MIN, endMinute); m <= endMinute; m = Math.min(m + STEP_MIN, endMinute)) {
-    ends.push(toTime(m));
-    if (m === endMinute || slots[key(date, toTime(m))]) break;
+function openForm(date, start, existing = null) {
+  if (existing && isPast(existing.day, toTime(toMin(existing.end_time) - STEP_MIN))) {
+    setStatus("Esta reunião já terminou e não pode mais ser editada.", true);
+    return;
   }
-  const people = [];
+  // términos possíveis: até o limite do dia ou até a próxima reunião
+  const availableEnds = (day, begins) => {
+    const ends = [], endMinute = toMin(END_TIME);
+    for (let m = Math.min(toMin(begins) + STEP_MIN, endMinute); m <= endMinute; m = Math.min(m + STEP_MIN, endMinute)) {
+      ends.push(toTime(m));
+      const occupied = slots[key(day, toTime(m))];
+      if (m === endMinute || (occupied && occupied.id !== existing?.id)) break;
+    }
+    return ends;
+  };
+  const people = [...(existing?.participants || [])];
 
   openPanel(`
-    <h2 id="ptitle">Agendar reunião</h2>
+    <h2 id="ptitle">${existing ? "Editar agendamento" : "Agendar reunião"}</h2>
     <p class="when">${fmtDate(date)} · início ${start}</p>
     <form class="form" id="bform" novalidate>
-      <label class="f" for="fname">Seu nome <span class="req">*</span>
+      ${existing ? `
+      <label class="f" for="factor">Seu nome para autorizar a edição <span class="req">*</span>
+        <span class="hint">Quem marcou ou um dos participantes da reserva atual.</span>
+        <input type="text" id="factor" maxlength="60" autocomplete="name">
+      </label>
+      <div class="form-times">
+        <label class="f" for="fdate">Data <span class="req">*</span><input type="date" id="fdate" min="${ymd(new Date())}" value="${existing.day}"></label>
+        <label class="f" for="fstart">Início <span class="req">*</span><select id="fstart">${times().map((t) => `<option value="${t}">${t}</option>`).join("")}</select></label>
+      </div>` : ""}
+      <label class="f" for="fname">${existing ? "Responsável pela reserva" : "Seu nome"} <span class="req">*</span>
         <input type="text" id="fname" maxlength="60" autocomplete="name">
       </label>
       <fieldset>
@@ -247,11 +297,10 @@ function openForm(date, start) {
       <label class="f" for="fend">Até que horas? <span class="req">*</span>
         <select id="fend">
           <option value="">Escolha o horário de término</option>
-          ${ends.map((t) => `<option value="${t}">${t} (${fmtDur(toMin(t) - toMin(start))})</option>`).join("")}
         </select>
       </label>
       <div class="f">
-        <label for="fpeople">Participantes <span class="hint">· também podem cancelar a reunião</span></label>
+        <label for="fpeople">Participantes <span class="hint">· também podem editar e cancelar a reunião</span></label>
         <div class="addrow">
           <input type="text" id="fpeople" maxlength="60" placeholder="Nome do participante">
           <button type="button" class="btn" id="fadd">Adicionar</button>
@@ -264,12 +313,29 @@ function openForm(date, start) {
       <p class="ferr" id="ferr" hidden></p>
       <div class="actions">
         <button type="button" class="btn" id="fcancel">Voltar</button>
-        <button type="submit" class="btn btn-primary" id="fsubmit">Confirmar agendamento</button>
+        <button type="submit" class="btn btn-primary" id="fsubmit">${existing ? "Salvar alterações" : "Confirmar agendamento"}</button>
       </div>
     </form>`);
 
-  try { const last = localStorage.getItem("agenda-great-nome"); if (last) $("fname").value = last; } catch (e) {}
-  $("fname").focus();
+  const refreshEnds = () => {
+    const day = existing ? $("fdate").value : date;
+    const begins = existing ? $("fstart").value : start;
+    const previous = $("fend").value;
+    $("fend").innerHTML = '<option value="">Escolha o horário de término</option>' + availableEnds(day, begins).map((t) => `<option value="${t}">${t} (${fmtDur(toMin(t) - toMin(begins))})</option>`).join("");
+    if (availableEnds(day, begins).includes(previous)) $("fend").value = previous;
+  };
+  if (existing) {
+    $("fname").value = existing.name;
+    $("ftopic").value = existing.topic || "";
+    document.querySelectorAll('input[name="sector"]').forEach((input) => { input.checked = input.value === existing.sector; });
+    $("fstart").value = existing.start_time;
+    $("fdate").onchange = refreshEnds;
+    $("fstart").onchange = refreshEnds;
+  }
+  refreshEnds();
+  if (existing) $("fend").value = existing.end_time;
+  try { const last = localStorage.getItem("agenda-great-nome"); if (last) $(existing ? "factor" : "fname").value = last; } catch (e) {}
+  $(existing ? "factor" : "fname").focus();
   $("fcancel").onclick = closePanel;
 
   const drawChips = () => {
@@ -289,17 +355,24 @@ function openForm(date, start) {
     $("fpeople").value = "";
     $("fpeople").focus();
   };
+  drawChips();
   $("fadd").onclick = addPerson;
   $("fpeople").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addPerson(); } });
 
   $("bform").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("fname").value.trim();
+    const actor = existing ? $("factor").value.trim() : name;
+    const day = existing ? $("fdate").value : date;
+    const begins = existing ? $("fstart").value : start;
     const secEl = document.querySelector('input[name="sector"]:checked');
     const end = $("fend").value;
     const err = $("ferr");
     const missing = [];
     if (!name) missing.push("seu nome");
+    if (!actor && existing) missing.push("seu nome para autorizar a edição");
+    if (!day) missing.push("a data");
+    if (!begins) missing.push("o horário de início");
     if (!secEl) missing.push("o setor");
     if (!end) missing.push("o horário de término");
     if (missing.length) {
@@ -307,28 +380,47 @@ function openForm(date, start) {
       err.hidden = false;
       return;
     }
+    const chosenDate = new Date(day + "T00:00:00");
+    if (Number.isNaN(chosenDate.getTime()) || ymd(chosenDate) !== day || chosenDate.getDay() === 0 ||
+        !times().includes(begins) || !availableEnds(day, begins).includes(end) || toMin(end) <= toMin(begins) ||
+        (isPast(day, begins) && (!existing || day !== existing.day || begins !== existing.start_time))) {
+      err.textContent = "Escolha uma data de segunda a sábado e horários disponíveis entre 09:00 e 23:59, sem voltar para um horário encerrado.";
+      err.hidden = false;
+      return;
+    }
     if ($("fpeople").value.trim()) addPerson();
     err.hidden = true;
     const btn = $("fsubmit");
-    btn.disabled = true; btn.textContent = "Reservando…";
+    btn.disabled = true; btn.textContent = existing ? "Salvando…" : "Reservando…";
 
-    const result = await store.create({
-      day: date, start_time: start, end_time: end, name,
+    const booking = {
+      day, start_time: begins, end_time: end, name,
       sector: secEl.value, topic: $("ftopic").value.trim() || null, participants: people,
-    });
+    };
+    let result;
+    try {
+      result = existing ? await store.update(existing.id, actor, booking) : await store.create(booking);
+    } catch (e) { result = "error"; }
 
     if (result === "ok") {
-      try { localStorage.setItem("agenda-great-nome", name); } catch (e) {}
+      try { localStorage.setItem("agenda-great-nome", actor); } catch (e) {}
       closePanel();
+      weekStart = mondayOf(chosenDate);
+      selectedDay = (chosenDate.getDay() + 6) % 7;
       await load();
-      setStatus("Reunião agendada: " + fmtDate(date) + ", " + start + " às " + end + ".");
+      setStatus((existing ? "Alterações salvas: " : "Reunião agendada: ") + fmtDate(day) + ", " + begins + " às " + end + ".");
     } else {
-      btn.disabled = false; btn.textContent = "Confirmar agendamento";
-      err.textContent = result === "taken"
-        ? "Esse horário acabou de ser reservado por outra pessoa. Escolha outro horário."
-        : "Não foi possível salvar. Verifique a conexão e tente de novo.";
+      btn.disabled = false; btn.textContent = existing ? "Salvar alterações" : "Confirmar agendamento";
+      err.textContent = ({
+        taken: "Esse horário já está reservado. Escolha outro horário. Sua reserva original foi mantida.",
+        denied: "Só quem marcou ou os participantes atuais podem editar. Confira o nome informado para autorizar.",
+        missing: "Esta reunião foi removida. Atualize a agenda para conferir os horários.",
+        ended: "Esta reunião já terminou e não pode mais ser editada.",
+        invalid: "Confira a data e os horários da reunião.",
+        setup: "A edição ainda precisa ser habilitada pelo administrador da agenda.",
+      })[result] || "Não foi possível salvar. Verifique a conexão e tente de novo.";
       err.hidden = false;
-      if (result === "taken") { load(); setTimeout(closePanel, 2500); }
+      if (result === "taken" || result === "missing") load();
     }
   });
 }
@@ -355,12 +447,13 @@ function openDetails(bk) {
     </div>`}
     <div class="actions">
       <button type="button" class="btn" id="dclose">Fechar</button>
-      ${ended ? "" : '<button type="button" class="btn btn-danger" id="dcancel">Cancelar reunião</button>'}
+      ${ended ? "" : '<button type="button" class="btn" id="dedit">Editar agendamento</button><button type="button" class="btn btn-danger" id="dcancel">Cancelar reunião</button>'}
     </div>`);
 
   $("dclose").onclick = closePanel;
   $("dclose").focus();
   if (ended) return;
+  $("dedit").onclick = () => openForm(bk.day, bk.start_time, bk);
 
   $("dcancel").onclick = async () => {
     const who = $("cname").value.trim();

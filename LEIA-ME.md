@@ -9,6 +9,7 @@ Agenda da sala de reunião. Segunda a sábado, das 9h às 23h59. A grade ocupa a
 - `script.js`: funcionamento da agenda
 - `config.js`: onde você cola os dados do Supabase
 - `supabase.sql`: cria a tabela e as regras no Supabase
+- `supabase-edit-booking.sql`: habilita edição em um banco que já possui a agenda
 
 ## 1. Conectar o Supabase
 1. Crie um projeto em supabase.com.
@@ -17,6 +18,14 @@ Agenda da sala de reunião. Segunda a sábado, das 9h às 23h59. A grade ocupa a
 4. Cole os dois em `config.js`.
 
 Enquanto o `config.js` estiver vazio, a agenda funciona em **modo de teste**: as reservas ficam salvas só no navegador de quem está usando.
+
+## Editar agendamentos
+Clique no lápis no bloco de uma reunião ou em **Editar agendamento** nos detalhes. O formulário permite alterar data, início, término, responsável, setor, assunto e participantes. Informe o nome de quem marcou ou de um participante atual para autorizar e clique em **Salvar alterações**. A autorização segue a regra de cancelamento existente, por nome, sem autenticação de identidade.
+
+Se o banco já estava configurado, execute **somente** o conteúdo de `supabase-edit-booking.sql` no SQL Editor do mesmo projeto. Novas instalações com `supabase.sql` já incluem essa função. Nenhuma reserva existente é apagada. As alterações são feitas na mesma reserva, persistem no Supabase e são distribuídas pela assinatura Realtime já usada pela agenda. Conflitos de horário mantêm a reserva original. Reuniões encerradas não podem ser editadas.
+
+## Verificação
+Execute `node --test tests/bookings.test.cjs` para conferir persistência local, autorização, conflitos e integração da chamada de edição ao Supabase.
 
 ## 2. Publicar na Vercel
 1. Suba a pasta para um repositório no GitHub (ou arraste a pasta em vercel.com/new).
