@@ -10,6 +10,7 @@ const SECTORS = {
   operacional: { label: "Operacional", cls: "sec-op" },
   comercial:   { label: "Comercial",   cls: "sec-com" },
   organico:    { label: "Orgânico",    cls: "sec-org" },
+  administrativo: { label: "Administrativo", cls: "sec-adm" },
 };
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 

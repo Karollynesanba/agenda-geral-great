@@ -10,6 +10,7 @@ Agenda da sala de reunião. Segunda a sábado, das 9h às 23h59. A grade ocupa a
 - `config.js`: onde você cola os dados do Supabase
 - `supabase.sql`: cria a tabela e as regras no Supabase
 - `supabase-edit-booking.sql`: habilita edição em um banco que já possui a agenda
+- `supabase-administrativo.sql`: adiciona Administrativo em um banco existente e atualiza a edição para aceitar o setor
 
 ## 1. Conectar o Supabase
 1. Crie um projeto em supabase.com.
@@ -26,6 +27,9 @@ Se o banco já estava configurado, execute **somente** o conteúdo de `supabase-
 
 ## Verificação
 Execute `node --test tests/bookings.test.cjs` para conferir persistência local, autorização, conflitos e integração da chamada de edição ao Supabase.
+
+## Adicionar o setor Administrativo ao banco existente
+Execute o conteúdo de `supabase-administrativo.sql` no SQL Editor do mesmo projeto. Esse arquivo atualiza a restrição de setores e a função de edição em uma transação, sem apagar reservas. Não é necessário repetir a instalação completa. Novas instalações com `supabase.sql` já incluem os quatro setores. O setor Administrativo aparece na legenda e nos formulários de criação e edição, com marcador vermelho vazado e borda tracejada.
 
 ## 2. Publicar na Vercel
 1. Suba a pasta para um repositório no GitHub (ou arraste a pasta em vercel.com/new).

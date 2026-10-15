@@ -97,6 +97,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .chip { display: inline-flex; align-items: center; gap: 6px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--c); }
 .dot.sec-org { background: var(--surface); border: 1px solid var(--fg); }
+.dot.sec-adm { background: var(--surface); border: 1px solid var(--accent); border-radius: 2px; }
 .status { font-size: 0.85rem; color: var(--muted); }
 .status.err { color: var(--danger); }
 
@@ -104,6 +105,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .sec-op  { --c: var(--op);  --cs: var(--op-soft); }
 .sec-com { --c: var(--com); --cs: var(--com-soft); }
 .sec-org { --c: var(--org); --cs: var(--org-soft); }
+.sec-adm { --c: var(--accent); --cs: var(--surface); }
 
 /* ---------- Grade da semana (computador) ---------- */
 .grid-scroll { border-top: 1px solid var(--line); background: var(--surface); }
@@ -138,6 +140,7 @@ table.week { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .slot.past { background: var(--past); cursor: default; }
 .slot.taken { color: var(--fg); border-left: 4px solid var(--c); background: var(--cs); overflow: hidden; }
 .slot.taken.sec-org { border-left-style: dashed; }
+.slot.taken.sec-adm { border-left-style: dashed; }
 .booking-block { position: relative; }
 .slot.with-edit { padding-right: 44px; }
 .booking-edit { position: absolute; top: 3px; right: 4px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--accent); }
@@ -205,7 +208,7 @@ input[type=text], input[type=date], select {
 .form-times { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-weight: 600; font-size: 0.9rem; padding: 0; margin-bottom: 6px; }
-.sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .sectors label { position: relative; }
 .sectors input { position: absolute; opacity: 0; }
 .sectors span { display: block; text-align: center; padding: 9px 4px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.88rem; cursor: pointer; }

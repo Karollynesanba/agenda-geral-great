@@ -26,13 +26,14 @@ test("edits retain the ID and persist across new storage instances", async () =>
   const first = environment.localStore();
   assert.equal(await first.create(original), "ok");
   const [booking] = await first.list(original.day, original.day);
-  const updated = { ...original, day: "2099-10-16", start_time: "23:30", end_time: "23:59", topic: "Revisão", participants: ["Ana"] };
+  const updated = { ...original, day: "2099-10-16", start_time: "23:30", end_time: "23:59", topic: "Revisão", sector: "administrativo", participants: ["Ana"] };
   assert.equal(await first.update(booking.id, " joao   silva ", updated), "ok");
   const reloaded = environment.localStore();
   assert.equal((await reloaded.list(original.day, original.day)).length, 0);
   const [saved] = await reloaded.list(updated.day, updated.day);
   assert.equal(saved.id, booking.id);
   assert.equal(saved.topic, "Revisão");
+  assert.equal(saved.sector, "administrativo");
   assert.equal(saved.start_time, "23:30");
   assert.equal(saved.end_time, "23:59");
   assert.deepEqual([...saved.participants], ["Ana"]);

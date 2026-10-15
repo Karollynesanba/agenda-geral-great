@@ -11,7 +11,7 @@ create table if not exists public.bookings (
   start_time   time not null,
   end_time     time not null,
   name         text not null check (length(trim(name)) > 0),
-  sector       text not null check (sector in ('operacional', 'comercial', 'organico')),
+  sector       text not null constraint bookings_sector_check check (sector in ('operacional', 'comercial', 'organico', 'administrativo')),
   topic        text,
   participants text[] not null default '{}',
   created_at   timestamptz not null default now(),
@@ -106,7 +106,7 @@ begin
     or extract(minute from p_start) not in (0, 30) or extract(second from p_start) <> 0
     or (p_end <> time '23:59' and (extract(minute from p_end) not in (0, 30) or extract(second from p_end) <> 0))
     or nullif(trim(p_name), '') is null or length(trim(p_name)) > 60
-    or p_sector is null or p_sector not in ('operacional', 'comercial', 'organico')
+    or p_sector is null
     or length(coalesce(p_topic, '')) > 80
     or (least(p_day + p_start + interval '30 minutes', p_day + time '23:59') <= local_now
       and (p_day <> original.day or p_start <> original.start_time))
